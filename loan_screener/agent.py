@@ -44,16 +44,6 @@ def calculate_debt_to_income(monthly_income: float, monthly_debt: float) -> str:
     dti = (monthly_debt / monthly_income) * 100
     return f"DTI ratio calculated as {dti:.2f}%."
 
-# Agent to collect information (uses LLM, no tools)
-info_collector = Agent(
-    name="InfoCollector",
-    model=Gemini(model="gemini-2.5-flash-lite", retry_options=retry_config),
-    instruction="Greet the user!"
-    "Collect the user's monthly income and total monthly debt."
-    "Wait until you have both pieces of information before proceeding to next agent.",
-    output_key="user_info"
-)
-
 # Agent to calculate DTI (uses custom tool)
 dti_calculator = Agent(
     name="DTICalculator",
@@ -94,14 +84,23 @@ decision_maker = Agent(
 
 
 # Agent to collect information (uses LLM, no tools)
-root_agent = SequentialAgent(
+loan_screener_pipeline = SequentialAgent(
     name="LoanScreener",
     sub_agents=[
-        info_collector,
         dti_calculator, 
         rate_fetcher, 
         decision_maker],
-    )
+                )
+
+root_agent = Agent(
+    name="InfoCollector",
+    model=Gemini(model="gemini-2.5-flash-lite", retry_options=retry_config),
+    instruction="Greet the user!"
+    "Collect the user's monthly income and total monthly debt."
+    "Wait until you have both pieces of information before calling the sub agent loan_screener_pipeline.",
+    tools=[AgentTool(loan_screener_pipeline)],
+    output_key="user_info"
+)
 
 session_service = InMemorySessionService()
 
